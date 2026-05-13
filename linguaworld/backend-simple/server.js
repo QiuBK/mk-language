@@ -255,10 +255,22 @@ function seedData() {
     ]}
   ];
 
-  for (let i = 0; i < chapters.length; i++) {
-    const chapterResult = insertChapter.run(courseIds[0], chapters[i].title, i + 1);
-    for (let j = 0; j < chapters[i].lessons.length; j++) {
-      insertLesson.run(chapterResult.lastInsertRowid, chapters[i].lessons[j].title, '', chapters[i].lessons[j].duration, j + 1);
+  for (let c = 0; c < courseIds.length; c++) {
+    const chapters = [
+      { title: '第一章', lessons: [
+        { title: '第一节', duration: 600 },
+        { title: '第二节', duration: 540 }
+      ]},
+      { title: '第二章', lessons: [
+        { title: '第一节', duration: 480 }
+      ]}
+    ];
+    
+    for (let i = 0; i < chapters.length; i++) {
+      const chapterResult = insertChapter.run(courseIds[c], chapters[i].title, i + 1);
+      for (let j = 0; j < chapters[i].lessons.length; j++) {
+        insertLesson.run(chapterResult.lastInsertRowid, chapters[i].lessons[j].title, '', chapters[i].lessons[j].duration, j + 1);
+      }
     }
   }
 
