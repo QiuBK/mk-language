@@ -4,7 +4,6 @@
       <h1>社区</h1>
     </header>
 
-    <!-- 标签筛选 -->
     <div class="tags-filter">
       <el-tag
         v-for="tag in tags"
@@ -16,7 +15,6 @@
       </el-tag>
     </div>
 
-    <!-- 动态列表 -->
     <div class="posts-container">
       <div v-if="loading" class="loading-container">
         <el-icon class="is-loading" :size="40"><Loading /></el-icon>
@@ -30,10 +28,10 @@
         <div v-for="post in posts" :key="post.id" class="post-card">
           <div class="post-header">
             <div class="user-info">
-              <img :src="post.userAvatar || defaultAvatar" :alt="post.userName" class="avatar" />
+              <img :src="post.user_avatar || defaultAvatar" :alt="post.user_name" class="avatar" />
               <div class="info">
-                <span class="name">{{ post.userName }}</span>
-                <span class="time">{{ formatTime(post.createTime) }}</span>
+                <span class="name">{{ post.user_name }}</span>
+                <span class="time">{{ formatTime(post.create_time) }}</span>
               </div>
             </div>
             <el-tag v-if="post.language" size="small">{{ getLanguageName(post.language) }}</el-tag>
@@ -50,9 +48,9 @@
               <el-icon><Star /></el-icon>
               <span>{{ post.likes }}</span>
             </div>
-            <div class="action-item" @click="handleComment(post)">
+            <div class="action-item" @click="toggleComments(post)">
               <el-icon><ChatLineSquare /></el-icon>
-              <span>{{ post.commentsCount }}</span>
+              <span>{{ post.comments_count || 0 }}</span>
             </div>
             <div class="action-item">
               <el-icon><Share /></el-icon>
@@ -60,62 +58,72 @@
             </div>
           </div>
 
-          <!-- 评论列表 -->
-          <div v-if="post.showComments && post.comments?.length" class="comments-list">
-            <div v-for="comment in post.comments" :key="comment.id" class="comment-item">
-              <img :src="comment.userAvatar" :alt="comment.userName" class="comment-avatar" />
-              <div class="comment-content">
-                <div class="comment-header">
-                  <span class="name">{{ comment.userName }}</span>
-                  <span class="time">{{ formatTime(comment.createTime) }}</span>
+          <div v-if="post.showComments" class="comments-section">
+            <div v-if="post.comments?.length" class="comments-list">
+              <div v-for="comment in post.comments" :key="comment.id" class="comment-item">
+                <img :src="comment.user_avatar || defaultAvatar" :alt="comment.user_name" class="comment-avatar" />
+                <div class="comment-content">
+                  <div class="comment-header">
+                    <span class="name">{{ comment.user_name }}</span>
+                    <span class="time">{{ formatTime(comment.create_time) }}</span>
+                  </div>
+                  <p class="comment-text">{{ comment.content }}</p>
                 </div>
-                <p class="comment-text">{{ comment.content }}</p>
               </div>
             </div>
-          </div>
 
-          <!-- 添加评论 -->
-          <div class="comment-input" v-if="post.showComments">
-            <el-input
-              v-model="commentText"
-              placeholder="写下你的评论..."
-              @keyup.enter="submitComment(post)"
-            >
-              <template #append>
-                <el-button @click="submitComment(post)">发送</el-button>
-              </template>
-            </el-input>
+            <div class="comment-input">
+              <el-input
+                v-model="commentText[post.id]"
+                placeholder="写下你的评论..."
+                size="small"
+                @keyup.enter="submitComment(post)"
+              >
+                <template #append>
+                  <el-button @click="submitComment(post)" :disabled="!commentText[post.id]?.trim()">发送</el-button>
+                </template>
+              </el-input>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 发布按钮 -->
     <el-button class="publish-button" type="primary" circle @click="showPublishDialog = true">
       <el-icon><Edit /></el-icon>
     </el-button>
 
-    <!-- 发布弹窗 -->
     <el-dialog v-model="showPublishDialog" title="发布动态" width="90%">
       <el-input
         v-model="newPostContent"
         type="textarea"
         :rows="4"
         placeholder="分享你的学习心得..."
+        maxlength="500"
+        show-word-limit
       />
+      <div class="language-select">
+        <span class="label">选择语言：</span>
+        <el-radio-group v-model="selectedLanguage" size="small">
+          <el-radio-button label="">不选择</el-radio-button>
+          <el-radio-button label="en">🇬🇧 英语</el-radio-button>
+          <el-radio-button label="ja">🇯🇵 日语</el-radio-button>
+          <el-radio-button label="ko">🇰🇷 韩语</el-radio-button>
+        </el-radio-group>
+      </div>
       <template #footer>
         <el-button @click="showPublishDialog = false">取消</el-button>
-        <el-button type="primary" @click="handlePublish">发布</el-button>
+        <el-button type="primary" @click="handlePublish" :loading="publishing">发布</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { Loading, Star, ChatLineSquare, Share, Edit } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import type { Post, Comment } from '@/types'
+import { getToken } from '@/utils/auth'
 
 const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
 
@@ -128,12 +136,40 @@ const tags = [
   { label: '求助', value: '求助' }
 ]
 
+interface Post {
+  id: number
+  user_id: number
+  user_name: string
+  user_avatar: string
+  content: string
+  images?: string[]
+  language?: string
+  likes: number
+  comments_count: number
+  liked?: boolean
+  create_time: string
+  showComments?: boolean
+  comments?: Comment[]
+}
+
+interface Comment {
+  id: number
+  post_id: number
+  user_id: number
+  user_name: string
+  user_avatar: string
+  content: string
+  create_time: string
+}
+
 const selectedTag = ref('')
 const posts = ref<Post[]>([])
 const loading = ref(false)
 const showPublishDialog = ref(false)
 const newPostContent = ref('')
-const commentText = ref('')
+const selectedLanguage = ref('')
+const publishing = ref(false)
+const commentText = reactive<Record<number, string>>({})
 
 const getLanguageName = (lang: string) => {
   const names: Record<string, string> = { en: '英语', ja: '日语', ko: '韩语' }
@@ -159,69 +195,167 @@ const handleTagChange = (tag: string) => {
   loadPosts()
 }
 
-const loadPosts = () => {
+const loadPosts = async () => {
   loading.value = true
-  // 模拟数据
-  setTimeout(() => {
-    posts.value = [
-      {
-        id: 1,
-        userId: 1,
-        userName: '语言爱好者',
-        userAvatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png',
-        content: '学习英语三个月了，从零基础到现在能进行简单对话，感觉进步很大！分享一下我的学习方法：每天早起听英语播客，午餐时间背单词，晚上练习口语。希望大家也能坚持下去！💪',
-        language: 'en',
-        likes: 128,
-        commentsCount: 5,
-        liked: false,
-        createTime: new Date(Date.now() - 3600000).toISOString(),
-        showComments: false,
-        comments: []
-      },
-      {
-        id: 2,
-        userId: 2,
-        userName: '韩剧迷',
-        userAvatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png',
-        content: '推荐一个超好用的韩语学习APP！通过看韩剧学韩语真的很有趣，朋友们都说我发音越来越地道了。',
-        images: ['https://picsum.photos/400/300'],
-        language: 'ko',
-        likes: 256,
-        commentsCount: 12,
-        liked: true,
-        createTime: new Date(Date.now() - 86400000).toISOString(),
-        showComments: false,
-        comments: []
+  try {
+    let url = 'http://localhost:8080/api/post/list?'
+    if (selectedTag.value) {
+      if (['en', 'ja', 'ko'].includes(selectedTag.value)) {
+        url += `language=${selectedTag.value}&`
+      } else {
+        url += `tag=${encodeURIComponent(selectedTag.value)}&`
       }
-    ]
+    }
+
+    const response = await fetch(url)
+    const result = await response.json()
+
+    if (result.code === 200) {
+      posts.value = result.data.map((p: any) => ({
+        ...p,
+        showComments: false,
+        comments: []
+      }))
+    } else {
+      ElMessage.error(result.message || '获取帖子列表失败')
+    }
+  } catch (err) {
+    console.error('获取帖子列表失败:', err)
+    ElMessage.error('获取帖子列表失败')
+  } finally {
     loading.value = false
-  }, 500)
+  }
 }
 
-const handleLike = (post: Post) => {
-  post.liked = !post.liked
-  post.likes += post.liked ? 1 : -1
-}
-
-const handleComment = (post: Post) => {
+const toggleComments = async (post: Post) => {
   post.showComments = !post.showComments
+
+  if (post.showComments && post.comments?.length === 0) {
+    await loadComments(post)
+  }
 }
 
-const submitComment = (post: Post) => {
-  if (!commentText.value.trim()) return
-  ElMessage.success('评论成功')
-  commentText.value = ''
+const loadComments = async (post: Post) => {
+  try {
+    const response = await fetch(`http://localhost:8080/api/post/${post.id}/comments`)
+    const result = await response.json()
+
+    if (result.code === 200) {
+      post.comments = result.data
+    }
+  } catch (err) {
+    console.error('获取评论失败:', err)
+  }
 }
 
-const handlePublish = () => {
+const handleLike = async (post: Post) => {
+  const token = getToken()
+  if (!token) {
+    ElMessage.warning('请先登录')
+    return
+  }
+
+  try {
+    const response = await fetch(`http://localhost:8080/api/post/${post.id}/like`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    const result = await response.json()
+
+    if (result.code === 200) {
+      post.liked = !post.liked
+      post.likes += post.liked ? 1 : -1
+    } else {
+      ElMessage.error(result.message)
+    }
+  } catch (err) {
+    console.error('点赞失败:', err)
+    ElMessage.error('操作失败')
+  }
+}
+
+const submitComment = async (post: Post) => {
+  const token = getToken()
+  if (!token) {
+    ElMessage.warning('请先登录')
+    return
+  }
+
+  const content = commentText[post.id]?.trim()
+  if (!content) return
+
+  try {
+    const response = await fetch(`http://localhost:8080/api/post/${post.id}/comment`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ content })
+    })
+    const result = await response.json()
+
+    if (result.code === 200) {
+      ElMessage.success('评论成功')
+      if (!post.comments) {
+        post.comments = []
+      }
+      post.comments.push(result.data)
+      post.comments_count = (post.comments_count || 0) + 1
+      commentText[post.id] = ''
+    } else {
+      ElMessage.error(result.message || '评论失败')
+    }
+  } catch (err) {
+    console.error('评论失败:', err)
+    ElMessage.error('评论失败')
+  }
+}
+
+const handlePublish = async () => {
+  const token = getToken()
+  if (!token) {
+    ElMessage.warning('请先登录')
+    return
+  }
+
   if (!newPostContent.value.trim()) {
     ElMessage.warning('请输入内容')
     return
   }
-  ElMessage.success('发布成功')
-  showPublishDialog.value = false
-  newPostContent.value = ''
-  loadPosts()
+
+  publishing.value = true
+  try {
+    const response = await fetch('http://localhost:8080/api/post/create', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        content: newPostContent.value,
+        language: selectedLanguage.value || null
+      })
+    })
+    const result = await response.json()
+
+    if (result.code === 200) {
+      ElMessage.success('发布成功')
+      showPublishDialog.value = false
+      newPostContent.value = ''
+      selectedLanguage.value = ''
+      await loadPosts()
+    } else {
+      ElMessage.error(result.message || '发布失败')
+    }
+  } catch (err) {
+    console.error('发布失败:', err)
+    ElMessage.error('发布失败')
+  } finally {
+    publishing.value = false
+  }
 }
 
 onMounted(() => {
@@ -264,6 +398,12 @@ onMounted(() => {
 
 .posts-container {
   padding: 16px 20px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
 }
 
 .post-card {
@@ -310,6 +450,7 @@ onMounted(() => {
     font-size: 14px;
     line-height: 1.6;
     margin-bottom: 12px;
+    word-break: break-word;
   }
 
   .post-images {
@@ -350,10 +491,14 @@ onMounted(() => {
     }
   }
 
-  .comments-list {
+  .comments-section {
     margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid var(--border-color);
+  }
+
+  .comments-list {
+    margin-bottom: 12px;
   }
 
   .comment-item {
@@ -389,12 +534,13 @@ onMounted(() => {
       .comment-text {
         font-size: 13px;
         margin-top: 4px;
+        color: var(--text-color);
       }
     }
   }
 
   .comment-input {
-    margin-top: 12px;
+    margin-top: 8px;
   }
 }
 
@@ -408,9 +554,14 @@ onMounted(() => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.loading-container {
-  display: flex;
-  justify-content: center;
-  padding: 40px;
+.language-select {
+  margin-top: 16px;
+
+  .label {
+    font-size: 14px;
+    color: var(--text-color-light);
+    margin-bottom: 8px;
+    display: block;
+  }
 }
 </style>

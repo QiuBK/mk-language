@@ -52,6 +52,7 @@ export interface Course {
   enrolledCount: number
   rating: number
   status: number
+  isEnrolled?: boolean
   createTime: string
 }
 

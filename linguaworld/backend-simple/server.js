@@ -140,6 +140,60 @@ function initDatabase() {
       FOREIGN KEY (user_id) REFERENCES tb_user(id),
       UNIQUE(user_id, course_id, lesson_id)
     );
+
+    CREATE TABLE IF NOT EXISTS tb_achievement (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT UNIQUE NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      icon TEXT,
+      category TEXT,
+      requirement INTEGER DEFAULT 0,
+      reward INTEGER DEFAULT 0,
+      create_time DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS tb_user_achievement (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      achievement_id INTEGER NOT NULL,
+      unlocked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES tb_user(id),
+      FOREIGN KEY (achievement_id) REFERENCES tb_achievement(id),
+      UNIQUE(user_id, achievement_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS tb_post (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      images TEXT,
+      language TEXT,
+      likes INTEGER DEFAULT 0,
+      create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES tb_user(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS tb_comment (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      parent_id INTEGER,
+      create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (post_id) REFERENCES tb_post(id),
+      FOREIGN KEY (user_id) REFERENCES tb_user(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS tb_post_like (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (post_id) REFERENCES tb_post(id),
+      FOREIGN KEY (user_id) REFERENCES tb_user(id),
+      UNIQUE(post_id, user_id)
+    );
   `);
 
   // Seed initial data if empty
@@ -252,6 +306,63 @@ function seedData() {
     INSERT INTO tb_user (username, password, email, nickname, role)
     VALUES (?, ?, ?, ?, ?)
   `).run('admin', hashedPassword, 'admin@example.com', '管理员', 2);
+
+  const insertAchievement = db.prepare(`
+    INSERT INTO tb_achievement (code, title, description, icon, category, requirement, reward)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const achievements = [
+    ['streak_7', '坚持一周', '连续学习7天', 'Flame', 'streak', 7, 100],
+    ['streak_30', '坚持一月', '连续学习30天', 'Flame', 'streak', 30, 500],
+    ['streak_100', '百日战士', '连续学习100天', 'Fire', 'streak', 100, 1500],
+    ['vocab_50', '单词新手', '学习50个单词', 'BookOpen', 'vocabulary', 50, 100],
+    ['vocab_100', '词汇达人', '学习100个单词', 'BookOpen', 'vocabulary', 100, 200],
+    ['vocab_500', '词汇专家', '学习500个单词', 'GraduationCap', 'vocabulary', 500, 800],
+    ['speaking_10', '开口说', '完成10次口语练习', 'Mic', 'speaking', 10, 100],
+    ['speaking_50', '口语达人', '完成50次口语练习', 'Mic', 'speaking', 50, 300],
+    ['speaking_100', '口语大师', '完成100次口语练习', 'Star', 'speaking', 100, 800],
+    ['level_5', '初露锋芒', '达到5级', 'Star', 'learning', 5, 150],
+    ['level_10', '小有名气', '达到10级', 'Trophy', 'learning', 10, 500],
+    ['course_3', '学习达人', '完成3门课程', 'Book', 'learning', 3, 300],
+    ['first_post', '初次发言', '发布第一条动态', 'Edit', 'social', 1, 50],
+    ['post_10', '社交达人', '发布10条动态', 'Chat', 'social', 10, 200]
+  ];
+
+  for (const achievement of achievements) {
+    insertAchievement.run(...achievement);
+  }
+
+  const insertPost = db.prepare(`
+    INSERT INTO tb_post (user_id, content, language, likes, create_time)
+    VALUES (?, ?, ?, ?, datetime('now', ?))
+  `);
+
+  const posts = [
+    [1, '学习英语三个月了，从零基础到现在能进行简单对话，感觉进步很大！每天早起听英语播客，午餐时间背单词，晚上练习口语。希望大家也能坚持下去！💪', 'en', 128, '-1 hours'],
+    [2, '推荐一个超好用的韩语学习APP！通过看韩剧学韩语真的很有趣，朋友们都说我发音越来越地道了。', 'ko', 256, '-1 days'],
+    [1, '今天完成了日语五十音图的学习！下一步准备开始学习基础会话，希望能够尽快达到N5水平。', 'ja', 89, '-2 days']
+  ];
+
+  for (const post of posts) {
+    insertPost.run(...post);
+  }
+
+  const insertComment = db.prepare(`
+    INSERT INTO tb_comment (post_id, user_id, content, create_time)
+    VALUES (?, ?, ?, datetime('now', ?))
+  `);
+
+  const comments = [
+    [1, 2, '太棒了！我也是用类似的方法学习的，确实很有效！', '-30 minutes'],
+    [1, 1, '坚持就是胜利，一起加油！', '-20 minutes'],
+    [2, 1, '请问是哪个APP呀？我也想试试', '-5 hours'],
+    [2, 2, '是HelloTalk，非常适合初学者', '-4 hours']
+  ];
+
+  for (const comment of comments) {
+    insertComment.run(...comment);
+  }
 
   console.log('Database seeded successfully!');
 }
@@ -688,6 +799,218 @@ app.get('/api/speaking/history', authenticate, (req, res) => {
   } catch (err) {
     console.error('Get speaking history error:', err);
     res.status(500).json({ code: 500, message: '获取练习历史失败' });
+  }
+});
+
+// ==================== Achievement APIs ====================
+
+app.get('/api/achievement/list', authenticate, (req, res) => {
+  try {
+    const achievements = db.prepare('SELECT * FROM tb_achievement ORDER BY category, requirement').all();
+    const userAchievements = db.prepare('SELECT achievement_id, unlocked_at FROM tb_user_achievement WHERE user_id = ?').all(req.userId);
+    const userInfo = db.prepare('SELECT streak, total_words, level FROM tb_user WHERE id = ?').get(req.userId);
+    const speakingCount = db.prepare('SELECT COUNT(*) as count FROM tb_user_speaking WHERE user_id = ?').get(req.userId);
+    const courseCount = db.prepare('SELECT COUNT(*) as count FROM tb_enrollment WHERE user_id = ?').get(req.userId);
+    const postCount = db.prepare('SELECT COUNT(*) as count FROM tb_post WHERE user_id = ?').get(req.userId);
+
+    const unlockedMap = new Map(userAchievements.map(ua => [ua.achievement_id, ua.unlocked_at]));
+
+    const result = achievements.map(a => {
+      const unlockedAt = unlockedMap.get(a.id);
+      let current = 0;
+
+      if (a.category === 'streak') {
+        current = userInfo?.streak || 0;
+      } else if (a.category === 'vocabulary') {
+        current = userInfo?.total_words || 0;
+      } else if (a.category === 'speaking') {
+        current = speakingCount?.count || 0;
+      } else if (a.category === 'learning') {
+        if (a.code === 'level_5' || a.code === 'level_10') {
+          current = userInfo?.level || 0;
+        } else if (a.code === 'course_3') {
+          current = courseCount?.count || 0;
+        }
+      } else if (a.category === 'social') {
+        current = postCount?.count || 0;
+      }
+
+      return {
+        ...a,
+        unlocked: !!unlockedAt,
+        unlockedAt: unlockedAt || null,
+        current
+      };
+    });
+
+    res.json({ code: 200, data: result });
+  } catch (err) {
+    console.error('Get achievements error:', err);
+    res.status(500).json({ code: 500, message: '获取成就列表失败' });
+  }
+});
+
+// ==================== Post APIs ====================
+
+app.get('/api/post/list', (req, res) => {
+  try {
+    const { language, tag, page = 1, pageSize = 20 } = req.query;
+    let sql = `
+      SELECT p.*, u.nickname as user_name, u.avatar as user_avatar,
+        (SELECT COUNT(*) FROM tb_comment WHERE post_id = p.id) as comments_count
+      FROM tb_post p
+      INNER JOIN tb_user u ON p.user_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (language) {
+      sql += ' AND p.language = ?';
+      params.push(language);
+    }
+    if (tag === '打卡') {
+      sql += ' AND p.content LIKE ?';
+      params.push('%打卡%');
+    }
+    if (tag === '求助') {
+      sql += ' AND p.content LIKE ?';
+      params.push('%求助%');
+    }
+
+    sql += ' ORDER BY p.create_time DESC LIMIT ? OFFSET ?';
+    params.push(parseInt(pageSize), (parseInt(page) - 1) * parseInt(pageSize));
+
+    const posts = db.prepare(sql).all(...params);
+
+    const result = posts.map(p => ({
+      ...p,
+      images: p.images ? JSON.parse(p.images) : [],
+      liked: false,
+      showComments: false,
+      comments: []
+    }));
+
+    res.json({ code: 200, data: result });
+  } catch (err) {
+    console.error('Get posts error:', err);
+    res.status(500).json({ code: 500, message: '获取帖子列表失败' });
+  }
+});
+
+app.post('/api/post/create', authenticate, (req, res) => {
+  try {
+    const { content, images, language } = req.body;
+
+    if (!content?.trim()) {
+      return res.status(400).json({ code: 400, message: '内容不能为空' });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO tb_post (user_id, content, images, language, create_time)
+      VALUES (?, ?, ?, ?, datetime('now'))
+    `).run(req.userId, content, images ? JSON.stringify(images) : null, language || null);
+
+    const post = db.prepare(`
+      SELECT p.*, u.nickname as user_name, u.avatar as user_avatar
+      FROM tb_post p
+      INNER JOIN tb_user u ON p.user_id = u.id
+      WHERE p.id = ?
+    `).get(result.lastInsertRowid);
+
+    const postCount = db.prepare('SELECT COUNT(*) as count FROM tb_post WHERE user_id = ?').get(req.userId);
+
+    const firstPostAchievement = db.prepare('SELECT * FROM tb_achievement WHERE code = ?').get('first_post');
+    if (firstPostAchievement && postCount.count >= 1) {
+      const existing = db.prepare('SELECT * FROM tb_user_achievement WHERE user_id = ? AND achievement_id = ?').get(req.userId, firstPostAchievement.id);
+      if (!existing) {
+        db.prepare('INSERT INTO tb_user_achievement (user_id, achievement_id) VALUES (?, ?)').run(req.userId, firstPostAchievement.id);
+        db.prepare('UPDATE tb_user SET exp = exp + ? WHERE id = ?').run(firstPostAchievement.reward, req.userId);
+      }
+    }
+
+    res.json({
+      code: 200,
+      message: '发布成功',
+      data: {
+        ...post,
+        images: post.images ? JSON.parse(post.images) : [],
+        liked: false,
+        showComments: false,
+        comments: [],
+        commentsCount: 0
+      }
+    });
+  } catch (err) {
+    console.error('Create post error:', err);
+    res.status(500).json({ code: 500, message: '发布失败' });
+  }
+});
+
+app.get('/api/post/:id/comments', (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const comments = db.prepare(`
+      SELECT c.*, u.nickname as user_name, u.avatar as user_avatar
+      FROM tb_comment c
+      INNER JOIN tb_user u ON c.user_id = u.id
+      WHERE c.post_id = ?
+      ORDER BY c.create_time ASC
+    `).all(id);
+
+    res.json({ code: 200, data: comments });
+  } catch (err) {
+    console.error('Get comments error:', err);
+    res.status(500).json({ code: 500, message: '获取评论失败' });
+  }
+});
+
+app.post('/api/post/:id/comment', authenticate, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+
+    if (!content?.trim()) {
+      return res.status(400).json({ code: 400, message: '评论内容不能为空' });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO tb_comment (post_id, user_id, content, create_time)
+      VALUES (?, ?, ?, datetime('now'))
+    `).run(id, req.userId, content);
+
+    const comment = db.prepare(`
+      SELECT c.*, u.nickname as user_name, u.avatar as user_avatar
+      FROM tb_comment c
+      INNER JOIN tb_user u ON c.user_id = u.id
+      WHERE c.id = ?
+    `).get(result.lastInsertRowid);
+
+    res.json({ code: 200, message: '评论成功', data: comment });
+  } catch (err) {
+    console.error('Create comment error:', err);
+    res.status(500).json({ code: 500, message: '评论失败' });
+  }
+});
+
+app.post('/api/post/:id/like', authenticate, (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existing = db.prepare('SELECT * FROM tb_post_like WHERE post_id = ? AND user_id = ?').get(id, req.userId);
+
+    if (existing) {
+      db.prepare('DELETE FROM tb_post_like WHERE post_id = ? AND user_id = ?').run(id, req.userId);
+      db.prepare('UPDATE tb_post SET likes = likes - 1 WHERE id = ?').run(id);
+      res.json({ code: 200, message: '取消点赞' });
+    } else {
+      db.prepare('INSERT INTO tb_post_like (post_id, user_id) VALUES (?, ?)').run(id, req.userId);
+      db.prepare('UPDATE tb_post SET likes = likes + 1 WHERE id = ?').run(id);
+      res.json({ code: 200, message: '点赞成功' });
+    }
+  } catch (err) {
+    console.error('Like post error:', err);
+    res.status(500).json({ code: 500, message: '操作失败' });
   }
 });
 

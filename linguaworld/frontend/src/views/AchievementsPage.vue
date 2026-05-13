@@ -8,8 +8,31 @@
       <h1>我的成就</h1>
     </header>
 
+    <section class="level-section">
+      <div class="level-card">
+        <div class="level-badge">
+          <span class="level-number">{{ userLevel }}</span>
+          <span class="level-label">LV</span>
+        </div>
+        <div class="level-info">
+          <div class="level-title">当前等级</div>
+          <div class="exp-bar">
+            <el-progress :percentage="expPercentage" :show-text="false" :stroke-width="8" color="#677eea" />
+            <span class="exp-text">{{ currentExp }} / {{ nextLevelExp }} 经验</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="stats-section">
       <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">🔥</div>
+          <div class="stat-info">
+            <span class="value">{{ learningDays }}</span>
+            <span class="label">学习天数</span>
+          </div>
+        </div>
         <div class="stat-card">
           <div class="stat-icon">🏆</div>
           <div class="stat-info">
@@ -18,17 +41,10 @@
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">📋</div>
+          <div class="stat-icon">📚</div>
           <div class="stat-info">
             <span class="value">{{ totalCount }}</span>
             <span class="label">总成就数</span>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">⭐</div>
-          <div class="stat-info">
-            <span class="value">{{ totalReward }}</span>
-            <span class="label">累计奖励</span>
           </div>
         </div>
       </div>
@@ -40,12 +56,17 @@
         <el-radio-button label="streak">🔥 连续</el-radio-button>
         <el-radio-button label="vocabulary">📚 词汇</el-radio-button>
         <el-radio-button label="speaking">🎤 口语</el-radio-button>
+        <el-radio-button label="learning">📖 学习</el-radio-button>
         <el-radio-button label="social">👥 社交</el-radio-button>
       </el-radio-group>
     </section>
 
     <section class="achievements-section">
-      <div class="achievements-grid">
+      <div v-if="loading" class="loading-container">
+        <el-icon class="is-loading" :size="40"><Loading /></el-icon>
+      </div>
+
+      <div v-else class="achievements-grid">
         <div
           v-for="achievement in filteredAchievements"
           :key="achievement.id"
@@ -94,25 +115,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ref, computed, onMounted } from 'vue'
+import { ArrowLeft, Loading } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
-import type { Achievement } from '@/types'
+import { getToken } from '@/utils/auth'
+
+interface Achievement {
+  id: number
+  code: string
+  title: string
+  description: string
+  icon: string
+  category: string
+  requirement: number
+  reward: number
+  unlocked: boolean
+  unlockedAt?: string
+  current?: number
+}
 
 const userStore = useUserStore()
 
 const selectedCategory = ref('')
 const showDialog = ref(false)
 const currentAchievement = ref<Achievement | null>(null)
+const achievements = ref<Achievement[]>([])
+const loading = ref(false)
 
-const achievements = ref<Achievement[]>([
-  { id: 1, code: 'streak_7', title: '坚持一周', description: '连续学习7天', icon: 'Flame', category: 'streak', requirement: 7, reward: 100, unlocked: true, unlockedAt: '2024-01-15' },
-  { id: 2, code: 'streak_30', title: '坚持一月', description: '连续学习30天', icon: 'Flame', category: 'streak', requirement: 30, reward: 500, unlocked: false },
-  { id: 3, code: 'vocab_100', title: '词汇达人', description: '学习100个单词', icon: 'BookOpen', category: 'vocabulary', requirement: 100, reward: 200, unlocked: true, unlockedAt: '2024-01-10' },
-  { id: 4, code: 'vocab_500', title: '词汇专家', description: '学习500个单词', icon: 'GraduationCap', category: 'vocabulary', requirement: 500, reward: 800, unlocked: false },
-  { id: 5, code: 'speaking_50', title: '开口说', description: '完成50次口语练习', icon: 'Mic', category: 'speaking', requirement: 50, reward: 300, unlocked: false },
-  { id: 6, code: 'level_5', title: '初露锋芒', description: '达到5级', icon: 'Star', category: 'vocabulary', requirement: 5, reward: 150, unlocked: true, unlockedAt: '2024-01-12' }
-])
+const learningDays = computed(() => userStore.userInfo?.streak || 0)
+const userLevel = computed(() => userStore.userInfo?.level || 1)
+const currentExp = computed(() => userStore.userInfo?.exp || 0)
+const nextLevelExp = computed(() => userLevel.value * 100)
+
+const expPercentage = computed(() => {
+  const exp = currentExp.value
+  const required = nextLevelExp.value
+  return Math.min(100, Math.round((exp / required) * 100))
+})
 
 const filteredAchievements = computed(() => {
   if (!selectedCategory.value) return achievements.value
@@ -121,15 +161,15 @@ const filteredAchievements = computed(() => {
 
 const unlockedCount = computed(() => achievements.value.filter(a => a.unlocked).length)
 const totalCount = computed(() => achievements.value.length)
-const totalReward = computed(() => achievements.value.filter(a => a.unlocked).reduce((sum, a) => sum + a.reward, 0))
 
 const getAchievementIcon = (code: string) => {
   const icons: Record<string, string> = {
-    streak_7: '🔥', streak_30: '🔥',
-    vocab_100: '📚', vocab_500: '📖',
-    speaking_50: '🎤', speaking_100: '🎙️',
+    streak_7: '🔥', streak_30: '🔥', streak_100: '🔥',
+    vocab_50: '📚', vocab_100: '📚', vocab_500: '📖',
+    speaking_10: '🎤', speaking_50: '🎤', speaking_100: '🎙️',
     level_5: '⭐', level_10: '🏆',
-    social_first: '👋', social_helper: '🤝'
+    course_3: '📖',
+    first_post: '✏️', post_10: '💬'
   }
   return icons[code] || '🏅'
 }
@@ -137,25 +177,57 @@ const getAchievementIcon = (code: string) => {
 const getProgress = (achievement: Achievement | null) => {
   if (!achievement) return 0
   if (achievement.unlocked) return 100
-  const userProgress = userStore.userInfo?.streak || 0
-  return Math.min(100, (userProgress / achievement.requirement) * 100)
+  const current = achievement.current || 0
+  return Math.min(100, Math.round((current / achievement.requirement) * 100))
 }
 
 const getProgressText = (achievement: Achievement | null) => {
   if (!achievement) return ''
   if (achievement.unlocked) return '已完成'
-  const userProgress = userStore.userInfo?.streak || 0
-  return `${userProgress} / ${achievement.requirement}`
+  const current = achievement.current || 0
+  return `${current} / ${achievement.requirement}`
 }
 
 const handleCategoryChange = () => {
-  // 重新筛选
 }
 
 const showAchievementDetail = (achievement: Achievement) => {
   currentAchievement.value = achievement
   showDialog.value = true
 }
+
+const fetchAchievements = async () => {
+  loading.value = true
+  try {
+    const token = getToken()
+    if (!token) {
+      ElMessage.warning('请先登录')
+      return
+    }
+
+    const response = await fetch('http://localhost:8080/api/achievement/list', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    const result = await response.json()
+
+    if (result.code === 200) {
+      achievements.value = result.data
+    } else {
+      ElMessage.error(result.message || '获取成就列表失败')
+    }
+  } catch (err) {
+    console.error('获取成就列表失败:', err)
+    ElMessage.error('获取成就列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(async () => {
+  await fetchAchievements()
+})
 </script>
 
 <style scoped lang="scss">
@@ -180,8 +252,63 @@ const showAchievementDetail = (achievement: Achievement) => {
   }
 }
 
-.stats-section {
+.level-section {
   padding: 20px;
+
+  .level-card {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    color: white;
+
+    .level-badge {
+      width: 70px;
+      height: 70px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+
+      .level-number {
+        font-size: 28px;
+        font-weight: bold;
+        line-height: 1;
+      }
+
+      .level-label {
+        font-size: 12px;
+        opacity: 0.8;
+      }
+    }
+
+    .level-info {
+      flex: 1;
+
+      .level-title {
+        font-size: 16px;
+        margin-bottom: 12px;
+        font-weight: bold;
+      }
+
+      .exp-bar {
+        .exp-text {
+          display: block;
+          margin-top: 8px;
+          font-size: 13px;
+          opacity: 0.9;
+        }
+      }
+    }
+  }
+}
+
+.stats-section {
+  padding: 0 20px 20px;
 
   .stats-grid {
     display: grid;
@@ -225,6 +352,12 @@ const showAchievementDetail = (achievement: Achievement) => {
 
 .achievements-section {
   padding: 0 20px;
+
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    padding: 40px;
+  }
 
   .achievements-grid {
     display: grid;

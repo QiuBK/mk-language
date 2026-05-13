@@ -17,7 +17,7 @@
     <!-- 课程内容 -->
     <div v-else-if="course" class="course-content">
       <!-- 视频播放器 -->
-      <div class="video-section" v-if="currentLesson">
+      <div class="video-section" v-if="currentLesson && isEnrolled">
         <VideoPlayer
           :video-url="currentLesson.videoUrl"
           :start-position="lastPosition"
@@ -26,6 +26,10 @@
           @ended="handleLessonEnd"
         />
         <div class="lesson-title">{{ currentLesson.title }}</div>
+      </div>
+      <div v-else-if="!isEnrolled" class="video-placeholder">
+        <el-icon :size="64"><VideoPlay /></el-icon>
+        <p>报名后可观看视频</p>
       </div>
 
       <!-- 课程信息 -->
@@ -40,6 +44,27 @@
             <span><el-icon><User /></el-icon> {{ course.teacherName }}</span>
             <span><el-icon><VideoCamera /></el-icon> {{ course.totalLessons }}课时</span>
             <span><el-icon><Clock /></el-icon> {{ course.duration }}分钟</span>
+          </div>
+          
+          <!-- 报名区域 -->
+          <div class="enroll-section">
+            <div v-if="isEnrolled" class="progress-info">
+              <div class="progress-bar-container">
+                <el-progress :percentage="totalProgress" :stroke-width="8" />
+              </div>
+              <div class="progress-text">
+                学习进度：{{ totalProgress }}%
+              </div>
+            </div>
+            <el-button
+              v-else
+              type="primary"
+              size="large"
+              class="enroll-btn"
+              @click="handleEnroll"
+            >
+              立即报名
+            </el-button>
           </div>
         </div>
 
@@ -85,8 +110,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowLeft, Loading, User, VideoCamera, Clock, VideoPlay, SuccessFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import VideoPlayer from '@/components/VideoPlayer.vue'
-import { getCourseDetail, getCourseProgress, updateCourseProgress } from '@/api/course'
+import { getCourseDetail, enrollCourse, getCourseProgress, updateCourseProgress } from '@/api/course'
 import type { Course, Chapter, Lesson } from '@/types'
 
 const route = useRoute()
@@ -105,6 +131,10 @@ const lastPosition = ref(0)
 
 // 已完成课时ID列表
 const completedLessonIds = ref<number[]>([])
+
+// 报名状态和学习进度
+const isEnrolled = ref(false)
+const totalProgress = ref(0)
 
 // 展开的章节
 const activeChapters = ref<number[]>([])
@@ -139,14 +169,43 @@ const isLessonCompleted = (lessonId: number) => {
   return completedLessonIds.value.includes(lessonId)
 }
 
+// 报名课程
+const handleEnroll = async () => {
+  try {
+    const res = await enrollCourse(courseId)
+    if (res.code === 200) {
+      isEnrolled.value = true
+      ElMessage.success('报名成功！')
+    } else {
+      ElMessage.error(res.message || '报名失败')
+    }
+  } catch (error) {
+    console.error('报名失败:', error)
+    ElMessage.error('报名失败，请稍后重试')
+  }
+}
+
 // 选择课时
 const selectLesson = (lesson: Lesson) => {
+  if (!isEnrolled.value) {
+    ElMessage.warning('请先报名课程')
+    return
+  }
   currentLesson.value = lesson
 }
 
 // 时间更新
 const handleTimeUpdate = (currentTime: number, duration: number) => {
-  // 可以在这里更新UI
+  if (duration > 0) {
+    // 更新本地进度百分比（基于当前课时）
+    const allLessons = chapters.value.flatMap(c => c.lessons)
+    const currentIndex = allLessons.findIndex(l => l.id === currentLesson.value?.id)
+    if (currentIndex >= 0) {
+      const lessonProgress = (currentTime / duration) * 100
+      const completedProgress = (currentIndex / allLessons.length) * 100
+      totalProgress.value = Math.min(100, Math.round(completedProgress + (lessonProgress / allLessons.length)))
+    }
+  }
 }
 
 // 保存进度
@@ -154,7 +213,10 @@ const handleProgressSave = async (currentTime: number) => {
   if (!course.value || !currentLesson.value) return
 
   try {
-    await updateCourseProgress(courseId, currentLesson.value.id, Math.floor(currentTime))
+    const res = await updateCourseProgress(courseId, currentLesson.value.id, Math.floor(currentTime))
+    if (res.code === 200) {
+      // 可以在这里更新本地进度
+    }
   } catch (error) {
     console.error('保存进度失败:', error)
   }
@@ -187,10 +249,18 @@ const loadCourseDetail = async () => {
       course.value = res.data
       chapters.value = res.data.chapters || []
 
+      // 检查报名状态
+      isEnrolled.value = res.data.isEnrolled || false
+
       // 获取学习进度
-      const progressRes = await getCourseProgress(courseId)
-      if (progressRes.code === 200) {
-        completedLessonIds.value = [] // 可以根据实际数据设置
+      try {
+        const progressRes = await getCourseProgress(courseId)
+        if (progressRes.code === 200) {
+          totalProgress.value = progressRes.data.progress
+          completedLessonIds.value = [] // 可以根据实际数据设置
+        }
+      } catch (progressError) {
+        console.error('获取进度失败:', progressError)
       }
 
       // 默认选中第一个课时
@@ -198,9 +268,12 @@ const loadCourseDetail = async () => {
         currentLesson.value = chapters.value[0].lessons[0]
         activeChapters.value = [chapters.value[0].id]
       }
+    } else {
+      ElMessage.error(res.message || '加载课程详情失败')
     }
   } catch (error) {
     console.error('加载课程详情失败:', error)
+    ElMessage.error('加载课程详情失败，请稍后重试')
   } finally {
     loading.value = false
   }
@@ -254,6 +327,21 @@ onMounted(() => {
   }
 }
 
+.video-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  gap: 16px;
+
+  p {
+    font-size: 18px;
+  }
+}
+
 .info-section {
   padding: 20px;
 }
@@ -304,6 +392,29 @@ onMounted(() => {
       display: flex;
       align-items: center;
       gap: 4px;
+    }
+  }
+
+  .enroll-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+
+    .enroll-btn {
+      width: 100%;
+      font-weight: bold;
+    }
+
+    .progress-info {
+      .progress-bar-container {
+        margin-bottom: 8px;
+      }
+
+      .progress-text {
+        font-size: 14px;
+        color: var(--text-color-light);
+        text-align: center;
+      }
     }
   }
 }
