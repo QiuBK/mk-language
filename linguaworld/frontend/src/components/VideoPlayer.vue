@@ -49,9 +49,8 @@
           <!-- 音量控制 -->
           <div class="volume-control" @click.stop>
             <el-icon @click="toggleMute" :size="20">
-              <VolumeMuted v-if="isMuted || volume === 0" />
-              <VolumeLow v-else-if="volume < 0.5" />
-              <VolumeHigh v-else />
+              <Mute v-if="isMuted || volume === 0" />
+              <VideoPlay v-else />
             </el-icon>
             <el-slider
               v-model="volume"
@@ -98,9 +97,7 @@ import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import {
   VideoPlay,
   VideoPause,
-  VolumeHigh,
-  VolumeLow,
-  VolumeMuted,
+  Mute,
   FullScreen,
   Close,
   Loading,

@@ -585,7 +585,16 @@ app.get('/api/course/list', (req, res) => {
     const courses = db.prepare(sql).all(...params);
     const total = db.prepare('SELECT COUNT(*) as count FROM tb_course WHERE status = 1').get().count;
 
-    res.json({ code: 200, data: { list: courses, total } });
+    const coursesWithLessons = courses.map(course => {
+      const chapters = db.prepare('SELECT * FROM tb_chapter WHERE course_id = ?').all(course.id);
+      const totalLessons = chapters.reduce((sum, ch) => {
+        const lessons = db.prepare('SELECT * FROM tb_lesson WHERE chapter_id = ?').all(ch.id);
+        return sum + lessons.length;
+      }, 0);
+      return { ...course, total_lessons: totalLessons };
+    });
+
+    res.json({ code: 200, data: { list: coursesWithLessons, total } });
   } catch (err) {
     console.error('Get course list error:', err);
     res.status(500).json({ code: 500, message: '获取课程列表失败' });
@@ -654,7 +663,25 @@ app.get('/api/course/:id', (req, res) => {
       chapter.lessons = lessons.filter(l => l.chapter_id === chapter.id);
     });
 
-    res.json({ code: 200, data: { ...course, chapters } });
+    const totalLessons = lessons.length;
+
+    let isEnrolled = false;
+    let progress = 0;
+    const userId = req.userId;
+    if (userId) {
+      const enrollment = db.prepare('SELECT * FROM tb_enrollment WHERE user_id = ? AND course_id = ?').get(userId, id);
+      isEnrolled = !!enrollment;
+      if (isEnrolled && totalLessons > 0) {
+        const progressData = db.prepare(
+          'SELECT SUM(progress) as total FROM tb_user_progress WHERE user_id = ? AND course_id = ?'
+        ).get(userId, id);
+        if (progressData.total) {
+          progress = (progressData.total / totalLessons) * 100;
+        }
+      }
+    }
+
+    res.json({ code: 200, data: { ...course, chapters, total_lessons: totalLessons, is_enrolled: isEnrolled, progress: Math.round(progress * 10) / 10 } });
   } catch (err) {
     console.error('Get course detail error:', err);
     res.status(500).json({ code: 500, message: '获取课程详情失败' });

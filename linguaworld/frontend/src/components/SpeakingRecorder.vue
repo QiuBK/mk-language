@@ -3,8 +3,9 @@
     <!-- 题目展示 -->
     <div class="topic-section">
       <div class="topic-type">{{ getTopicType }}</div>
-      <h3 class="topic-title">{{ topic.title }}</h3>
-      <p v-if="topic.content" class="topic-content">{{ topic.content }}</p>
+      <h3 class="topic-title">{{ topic.content || topic.title }}</h3>
+      <p v-if="topic.translation" class="topic-translation">{{ topic.translation }}</p>
+      <p v-if="topic.content && topic.title" class="topic-content">{{ topic.content }}</p>
 
       <!-- 播放示例音频 -->
       <el-button
@@ -300,6 +301,12 @@ onUnmounted(() => {
   .topic-content {
     color: var(--text-color-light);
     margin-bottom: 16px;
+  }
+
+  .topic-translation {
+    color: var(--text-color-light);
+    margin-bottom: 16px;
+    font-style: italic;
   }
 }
 

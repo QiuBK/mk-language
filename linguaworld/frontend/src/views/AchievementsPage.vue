@@ -119,7 +119,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ArrowLeft, Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
-import { getToken } from '@/utils/auth'
+import request from '@/api/request'
 
 interface Achievement {
   id: number
@@ -199,19 +199,7 @@ const showAchievementDetail = (achievement: Achievement) => {
 const fetchAchievements = async () => {
   loading.value = true
   try {
-    const token = getToken()
-    if (!token) {
-      ElMessage.warning('请先登录')
-      return
-    }
-
-    const response = await fetch('http://localhost:8080/api/achievement/list', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    const result = await response.json()
-
+    const result = await request.get('/achievement/list')
     if (result.code === 200) {
       achievements.value = result.data
     } else {

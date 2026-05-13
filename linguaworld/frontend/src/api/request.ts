@@ -2,6 +2,23 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } f
 import { ElMessage } from 'element-plus'
 import router from '@/router'
 
+function toCamelCase(str: string): string {
+  return str.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
+}
+
+function convertKeys(obj: any): any {
+  if (obj === null || obj === undefined) return obj
+  if (Array.isArray(obj)) return obj.map(convertKeys)
+  if (typeof obj === 'object') {
+    const result: any = {}
+    for (const key of Object.keys(obj)) {
+      result[toCamelCase(key)] = convertKeys(obj[key])
+    }
+    return result
+  }
+  return obj
+}
+
 // 创建axios实例
 const service: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -36,6 +53,7 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response: AxiosResponse) => {
     const res = response.data
+    res.data = convertKeys(res.data)
 
     // 根据响应码处理
     if (res.code === 200) {

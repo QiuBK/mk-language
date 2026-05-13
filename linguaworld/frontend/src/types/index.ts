@@ -53,6 +53,7 @@ export interface Course {
   rating: number
   status: number
   isEnrolled?: boolean
+  progress?: number
   createTime: string
 }
 
@@ -101,10 +102,11 @@ export interface Wordbook {
 export interface SpeakingTopic {
   id: number
   language: string
-  title: string
+  title?: string
   content: string
+  translation?: string
   audioUrl?: string
-  type: string
+  type?: string
   difficulty: string
   keywords?: string[]
 }
@@ -117,6 +119,7 @@ export interface SpeakingResult {
   score: number
   feedback: string
   errorPoints: string[]
+  topic?: SpeakingTopic
   createTime: string
 }
 
