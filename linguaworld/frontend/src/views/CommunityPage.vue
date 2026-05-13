@@ -123,9 +123,11 @@
 import { ref, reactive, onMounted } from 'vue'
 import { Loading, Star, ChatLineSquare, Share, Edit } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { getToken } from '@/utils/auth'
+import { useUserStore } from '@/store/user'
+import { getPostList, getPostComments, likePost, createPost, createComment, type Post, type Comment } from '@/api/post'
 
 const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+const userStore = useUserStore()
 
 const tags = [
   { label: '全部', value: '' },
@@ -135,32 +137,6 @@ const tags = [
   { label: '学习打卡', value: '打卡' },
   { label: '求助', value: '求助' }
 ]
-
-interface Post {
-  id: number
-  user_id: number
-  user_name: string
-  user_avatar: string
-  content: string
-  images?: string[]
-  language?: string
-  likes: number
-  comments_count: number
-  liked?: boolean
-  create_time: string
-  showComments?: boolean
-  comments?: Comment[]
-}
-
-interface Comment {
-  id: number
-  post_id: number
-  user_id: number
-  user_name: string
-  user_avatar: string
-  content: string
-  create_time: string
-}
 
 const selectedTag = ref('')
 const posts = ref<Post[]>([])
@@ -198,17 +174,16 @@ const handleTagChange = (tag: string) => {
 const loadPosts = async () => {
   loading.value = true
   try {
-    let url = 'http://localhost:8080/api/post/list?'
+    let params: Record<string, any> = {}
     if (selectedTag.value) {
       if (['en', 'ja', 'ko'].includes(selectedTag.value)) {
-        url += `language=${selectedTag.value}&`
+        params.language = selectedTag.value
       } else {
-        url += `tag=${encodeURIComponent(selectedTag.value)}&`
+        params.tag = selectedTag.value
       }
     }
 
-    const response = await fetch(url)
-    const result = await response.json()
+    const result = await getPostList(params)
 
     if (result.code === 200) {
       posts.value = result.data.map((p: any) => ({
@@ -237,8 +212,7 @@ const toggleComments = async (post: Post) => {
 
 const loadComments = async (post: Post) => {
   try {
-    const response = await fetch(`http://localhost:8080/api/post/${post.id}/comments`)
-    const result = await response.json()
+    const result = await getPostComments(post.id)
 
     if (result.code === 200) {
       post.comments = result.data
@@ -249,20 +223,13 @@ const loadComments = async (post: Post) => {
 }
 
 const handleLike = async (post: Post) => {
-  const token = getToken()
-  if (!token) {
+  if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
     return
   }
 
   try {
-    const response = await fetch(`http://localhost:8080/api/post/${post.id}/like`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    const result = await response.json()
+    const result = await likePost(post.id)
 
     if (result.code === 200) {
       post.liked = !post.liked
@@ -277,8 +244,7 @@ const handleLike = async (post: Post) => {
 }
 
 const submitComment = async (post: Post) => {
-  const token = getToken()
-  if (!token) {
+  if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
     return
   }
@@ -287,15 +253,7 @@ const submitComment = async (post: Post) => {
   if (!content) return
 
   try {
-    const response = await fetch(`http://localhost:8080/api/post/${post.id}/comment`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ content })
-    })
-    const result = await response.json()
+    const result = await createComment(post.id, { content })
 
     if (result.code === 200) {
       ElMessage.success('评论成功')
@@ -315,8 +273,7 @@ const submitComment = async (post: Post) => {
 }
 
 const handlePublish = async () => {
-  const token = getToken()
-  if (!token) {
+  if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
     return
   }
@@ -328,18 +285,10 @@ const handlePublish = async () => {
 
   publishing.value = true
   try {
-    const response = await fetch('http://localhost:8080/api/post/create', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        content: newPostContent.value,
-        language: selectedLanguage.value || null
-      })
+    const result = await createPost({
+      content: newPostContent.value,
+      language: selectedLanguage.value || undefined
     })
-    const result = await response.json()
 
     if (result.code === 200) {
       ElMessage.success('发布成功')

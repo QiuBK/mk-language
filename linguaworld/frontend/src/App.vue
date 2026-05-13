@@ -1,20 +1,30 @@
 <template>
   <div id="app" :class="{ 'dark-mode': isDarkMode }">
-    <router-view />
+    <div class="app-content">
+      <router-view />
+    </div>
+    <BottomNavigation v-if="showNavigation" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, watch, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useLanguageStore } from './store/language'
 import { useUserStore } from './store/user'
+import BottomNavigation from './components/BottomNavigation.vue'
 
 const route = useRoute()
+const router = useRouter()
 const languageStore = useLanguageStore()
 const userStore = useUserStore()
 
 const isDarkMode = ref(true)
+
+const showNavigation = computed(() => {
+  const noNavPages = ['login', 'register']
+  return !noNavPages.includes(route.name as string)
+})
 
 // 监听语言变化，更新Element Plus语言包
 watch(() => languageStore.currentLanguage, (newLang) => {
@@ -41,6 +51,11 @@ const getPageTitle = (name?: string): string => {
   min-height: 100vh;
   background: var(--bg-color);
   color: var(--text-color);
+}
+
+.app-content {
+  min-height: 100vh;
+  padding-bottom: 64px;
 }
 
 .dark-mode {

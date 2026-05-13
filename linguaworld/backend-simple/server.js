@@ -211,12 +211,15 @@ function seedData() {
   `);
 
   const courses = [
-    ['英语基础入门', '从零开始学习英语，掌握日常交流必备词汇和语法', '/assets/courses/en-beginner.jpg', 'en', 'beginner', 4.8, 1234],
-    ['英语中级进阶', '提升英语表达能力，学习商务沟通技巧', '/assets/courses/en-intermediate.jpg', 'en', 'intermediate', 4.7, 856],
-    ['英语高级口语', '流利英语对话，深度文化理解', '/assets/courses/en-advanced.jpg', 'en', 'advanced', 4.9, 543],
-    ['日语五十音图', '轻松掌握日语假名，开启日语学习之旅', '/assets/courses/ja-beginner.jpg', 'ja', 'beginner', 4.9, 2345],
-    ['日语基础会话', '日常日语交流，实用场景对话', '/assets/courses/ja-intermediate.jpg', 'ja', 'intermediate', 4.6, 987],
-    ['韩语零基础', '从韩语字母开始，系统学习韩语', '/assets/courses/ko-beginner.jpg', 'ko', 'beginner', 4.8, 1567],
+    ['英语基础入门', '从零开始学习英语，掌握日常交流必备词汇和语法，适合零基础学习者', 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=400&h=300&fit=crop', 'en', 'beginner', 4.8, 1234],
+    ['英语中级进阶', '提升英语表达能力，学习商务沟通技巧，适合有基础的学习者', 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=400&h=300&fit=crop', 'en', 'intermediate', 4.7, 856],
+    ['英语高级口语', '流利英语对话，深度文化理解，适合高级学习者', 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=300&fit=crop', 'en', 'advanced', 4.9, 543],
+    ['日语五十音图', '轻松掌握日语假名，开启日语学习之旅，适合零基础', 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=400&h=300&fit=crop', 'ja', 'beginner', 4.9, 2345],
+    ['日语基础会话', '日常日语交流，实用场景对话，适合有基础的学习者', 'https://images.unsplash.com/photo-1485808191679-5f86510681a2?w=400&h=300&fit=crop', 'ja', 'intermediate', 4.6, 987],
+    ['日语N2备考', '日语能力考N2专项训练，语法、听力、阅读全面提升', 'https://images.unsplash.com/photo-1490810195858-35528e328a2a?w=400&h=300&fit=crop', 'ja', 'advanced', 4.8, 765],
+    ['韩语零基础', '从韩语字母开始，系统学习韩语，适合零基础', 'https://images.unsplash.com/photo-1404866381178-7a33a3f060a5?w=400&h=300&fit=crop', 'ko', 'beginner', 4.8, 1567],
+    ['韩语日常会话', '实用韩语口语，旅游、购物、交友必备', 'https://images.unsplash.com/photo-1465734287070-0c5e629e823e?w=400&h=300&fit=crop', 'ko', 'intermediate', 4.7, 1023],
+    ['韩语TOPIK备考', '韩国语能力考试专项辅导，助你一次通过', 'https://images.unsplash.com/photo-1431324452596-d443b6255891?w=400&h=300&fit=crop', 'ko', 'advanced', 4.5, 678],
   ];
 
   const courseIds = [];
@@ -238,11 +241,17 @@ function seedData() {
     { title: '基础词汇', lessons: [
       { title: '数字1-10', duration: 420 },
       { title: '颜色表达', duration: 380 },
-      { title: '日常用品', duration: 450 }
+      { title: '日常用品', duration: 450 },
+      { title: '家庭成员', duration: 480 }
     ]},
     { title: '简单对话', lessons: [
       { title: '打招呼', duration: 520 },
-      { title: '自我介绍', duration: 600 }
+      { title: '自我介绍', duration: 600 },
+      { title: '问路', duration: 550 }
+    ]},
+    { title: '基础语法', lessons: [
+      { title: '时态入门', duration: 720 },
+      { title: '简单句型', duration: 600 }
     ]}
   ];
 
@@ -265,11 +274,32 @@ function seedData() {
     ['learn', '/lɜːrn/', '学习', 'I want to learn English.', '我想学英语。', 'en', 'beginner'],
     ['time', '/taɪm/', '时间', 'Time is precious.', '时间很宝贵。', 'en', 'beginner'],
     ['friend', '/frend/', '朋友', 'She is my best friend.', '她是我最好的朋友。', 'en', 'beginner'],
+    ['love', '/lʌv/', '爱', 'Love is everywhere.', '爱无处不在。', 'en', 'beginner'],
+    ['happy', '/ˈhæpi/', '快乐的', 'I am very happy today.', '我今天很开心。', 'en', 'beginner'],
+    ['work', '/wɜːrk/', '工作', 'I work hard every day.', '我每天努力工作。', 'en', 'beginner'],
+    ['home', '/hoʊm/', '家', 'Home is where the heart is.', '心在哪里，家就在哪里。', 'en', 'beginner'],
+    ['book', '/bʊk/', '书', 'Reading a book is relaxing.', '读书很放松。', 'en', 'beginner'],
+    ['this', '/ðɪs/', '这个', 'This is my book.', '这是我的书。', 'en', 'beginner'],
+    ['that', '/ðæt/', '那个', 'That is your pen.', '那是你的笔。', 'en', 'beginner'],
+    ['good', '/ɡʊd/', '好的', 'Good morning!', '早上好！', 'en', 'beginner'],
+    ['thank', '/θæŋk/', '感谢', 'Thank you very much.', '非常感谢。', 'en', 'beginner'],
+    ['please', '/pliːz/', '请', 'Please sit down.', '请坐。', 'en', 'beginner'],
     ['こんにちは', '/konnichiwa/', '你好', 'こんにちは、元気ですか？', '你好，你好吗？', 'ja', 'beginner'],
     ['ありがとう', '/arigatou/', '谢谢', 'ありがとうございます。', '非常感谢。', 'ja', 'beginner'],
     ['世界', '/sekai/', '世界', '世界は広いですね。', '世界真广阔啊。', 'ja', 'beginner'],
+    ['今日', '/kyō/', '今天', '今日はいい天気ですね。', '今天天气真好。', 'ja', 'beginner'],
+    ['食べる', '/taberu/', '吃', 'ご飯を食べましょう。', '我们吃饭吧。', 'ja', 'beginner'],
+    ['水', '/mizu/', '水', '水をください。', '请给我水。', 'ja', 'beginner'],
+    ['家', '/ie/', '家', '家が好きです。', '我喜欢家。', 'ja', 'beginner'],
+    ['友達', '/tomodachi/', '朋友', '彼は私の友達です。', '他是我的朋友。', 'ja', 'beginner'],
     ['안녕하세요', '/annyeonghaseyo/', '你好', '안녕하세요, 만나서 반갑습니다.', '你好，见到你很高兴。', 'ko', 'beginner'],
     ['감사합니다', '/gamsahamnida/', '谢谢', '정말 감사합니다.', '真的非常感谢。', 'ko', 'beginner'],
+    ['사랑', '/sarang/', '爱', '사랑은 아름다워요.', '爱情很美丽。', 'ko', 'beginner'],
+    ['오늘', '/oneul/', '今天', '오늘 날씨가 좋아요.', '今天天气很好。', 'ko', 'beginner'],
+    ['음식', '/eumsik/', '食物', '한국 음식이 맛있어요.', '韩国菜很好吃。', 'ko', 'beginner'],
+    ['집', '/jip/', '家', '집에 가고 싶어요.', '我想回家。', 'ko', 'beginner'],
+    ['친구', '/chingu/', '朋友', '그는 나의 친구입니다.', '他是我的朋友。', 'ko', 'beginner'],
+    ['좋아요', '/joayo/', '好', '이 책 좋아요.', '这本书很好。', 'ko', 'beginner'],
   ];
 
   for (const vocab of vocabularies) {
@@ -286,9 +316,23 @@ function seedData() {
     ['Please introduce yourself.', '请介绍一下你自己。', 'en', 'beginner'],
     ['What did you do last weekend?', '你上周末做了什么？', 'en', 'intermediate'],
     ['Describe your favorite city.', '描述你最喜欢的城市。', 'en', 'advanced'],
+    ['Talk about your hobbies.', '谈谈你的爱好。', 'en', 'beginner'],
+    ['What is your favorite food?', '你最喜欢的食物是什么？', 'en', 'beginner'],
+    ['How do you usually spend your holidays?', '你通常如何度过假期？', 'en', 'intermediate'],
+    ['Tell me about your family.', '说说你的家庭。', 'en', 'beginner'],
+    ['What is your dream job?', '你的理想工作是什么？', 'en', 'intermediate'],
     ['自己紹介をしてください。', '请做一下自我介绍。', 'ja', 'beginner'],
     ['今日の天気を教えてください。', '请告诉我今天的天气。', 'ja', 'intermediate'],
+    ['趣味について話してください。', '请谈谈你的兴趣爱好。', 'ja', 'beginner'],
+    ['好きな食べ物は何ですか？', '你喜欢什么食物？', 'ja', 'beginner'],
+    ['将来の夢は何ですか？', '你的梦想是什么？', 'ja', 'intermediate'],
+    ['最近読んだ本は何ですか？', '你最近读了什么书？', 'ja', 'intermediate'],
     ['자기소개를 해보세요.', '请做一下自我介绍。', 'ko', 'beginner'],
+    ['오늘 기분은 어떠세요?', '你今天心情怎么样？', 'ko', 'beginner'],
+    ['취미가 뭐예요?', '你的爱好是什么？', 'ko', 'beginner'],
+    ['좋아하는 음식은 뭐예요?', '你喜欢什么食物？', 'ko', 'beginner'],
+    ['어떤 일을 하고 싶어요?', '你想做什么工作？', 'ko', 'intermediate'],
+    ['가장 좋아하는 계절은 뭐예요?', '你最喜欢的季节是什么？', 'ko', 'beginner'],
   ];
 
   for (const topic of topics) {
