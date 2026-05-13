@@ -58,9 +58,15 @@
           :class="{ completed: task.completed }"
           @click="completeTask(task)"
         >
-          <el-checkbox v-model="task.completed" @change="handleTaskChange(task)">
-            <span class="task-title">{{ task.title }}</span>
-          </el-checkbox>
+          <div class="task-checkbox">
+            <el-checkbox 
+              v-model="task.completed" 
+              @change="handleTaskChange(task)"
+              :checked="task.completed"
+            >
+            </el-checkbox>
+          </div>
+          <span class="task-title">{{ task.title }}</span>
           <span class="task-reward">+{{ task.exp }}经验</span>
         </div>
       </div>
@@ -71,7 +77,7 @@
       <h2 class="section-title">{{ t('home.continue') }}</h2>
       <div class="continue-card" @click="goToCourse">
         <div class="course-cover">
-          <img :src="currentCourse.coverImage" :alt="currentCourse.title" />
+          <img :src="currentCourse.coverImage" :alt="currentCourse.title" @error="handleImageError" />
           <div class="progress-ring">
             <svg viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="45" class="bg" />
@@ -112,7 +118,7 @@
           @click="goToCourseDetail(course)"
         >
           <div class="course-image">
-            <img :src="course.coverImage" :alt="course.title" />
+            <img :src="course.coverImage" :alt="course.title" @error="handleImageError" />
             <div class="course-lang-badge">{{ getLanguageFlag(course.language) }}</div>
           </div>
           <div class="course-content">
@@ -189,7 +195,8 @@ const currentCourse = ref<Course | null>(null)
 // 课程进度
 const courseProgress = computed(() => {
   if (!currentCourse.value) return 0
-  return (currentCourse.value.enrolledCount / currentCourse.value.totalLessons) * 100
+  const progress = currentCourse.value.progress || 0
+  return Math.min(progress, 100)
 })
 
 // 获取课程标题
@@ -255,6 +262,12 @@ const goToCourse = () => {
   if (currentCourse.value) {
     router.push(`/course/${currentCourse.value.id}`)
   }
+}
+
+// 图片加载失败处理
+const handleImageError = (e: Event) => {
+  const target = e.target as HTMLImageElement
+  target.src = `https://via.placeholder.com/${target.width}x${target.height}?text=Course+Cover`
 }
 
 // 加载推荐课程
@@ -375,16 +388,16 @@ onMounted(() => {
   .tasks-list {
     background: var(--card-bg);
     border-radius: 16px;
-    padding: 8px 0;
+    overflow: hidden;
   }
 
   .task-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
+    padding: 16px;
     cursor: pointer;
     transition: background 0.3s;
+    gap: 12px;
 
     &:hover {
       background: rgba(0, 0, 0, 0.05);
@@ -395,12 +408,28 @@ onMounted(() => {
 
       .task-title {
         text-decoration: line-through;
+        color: var(--text-color-light);
       }
+    }
+
+    .task-checkbox {
+      flex-shrink: 0;
+    }
+
+    .task-title {
+      flex: 1;
+      font-size: 14px;
+      color: var(--text-color);
+      transition: all 0.3s;
     }
 
     .task-reward {
       color: #f59e0b;
       font-size: 12px;
+      font-weight: 500;
+      background: rgba(245, 158, 11, 0.1);
+      padding: 4px 10px;
+      border-radius: 12px;
     }
   }
 }

@@ -585,7 +585,34 @@ app.get('/api/course/recommend', (req, res) => {
     const courses = db.prepare(
       'SELECT * FROM tb_course WHERE status = 1 ORDER BY rating DESC, enrolled_count DESC LIMIT 6'
     ).all();
-    res.json({ code: 200, data: courses });
+
+    const userId = req.userId;
+    
+    const result = courses.map(course => {
+      const chapters = db.prepare('SELECT * FROM tb_chapter WHERE course_id = ?').all(course.id);
+      const totalLessons = chapters.reduce((sum, ch) => {
+        const lessons = db.prepare('SELECT * FROM tb_lesson WHERE chapter_id = ?').all(ch.id);
+        return sum + lessons.length;
+      }, 0);
+
+      let progress = 0;
+      if (userId) {
+        const progressData = db.prepare(
+          'SELECT SUM(progress) as total FROM tb_user_progress WHERE user_id = ? AND course_id = ?'
+        ).get(userId, course.id);
+        if (progressData.total && totalLessons > 0) {
+          progress = (progressData.total / totalLessons) * 100;
+        }
+      }
+
+      return {
+        ...course,
+        totalLessons,
+        progress: Math.round(progress * 10) / 10
+      };
+    });
+
+    res.json({ code: 200, data: result });
   } catch (err) {
     console.error('Get recommend courses error:', err);
     res.status(500).json({ code: 500, message: '获取推荐课程失败' });
